@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "outputDirectory": ".",
   "rewrites": [
     { "source": "/api/projects/:id", "destination": "/api/projects/[id].js" },
     { "source": "/api/projects", "destination": "/api/projects/index.js" },
