@@ -1116,10 +1116,41 @@
     }
 
     /* ═══════════════════════════════════════
-       PERSISTENCE
+       PERSISTENCE (LocalStorage + Vercel Postgres Sync)
        ═══════════════════════════════════════ */
-    function saveState() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {} }
-    function loadState() { try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : null; } catch(e) { return null; } }
+    let syncTimeout = null;
+
+    function saveState() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+      clearTimeout(syncTimeout);
+      syncTimeout = setTimeout(syncCloudState, 400);
+    }
+
+    function loadState() {
+      try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : null; } catch(e) { return null; }
+    }
+
+    async function syncCloudState() {
+      try {
+        await fetch('/api/timeline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(state)
+        });
+      } catch(e) {}
+    }
+
+    async function fetchCloudState() {
+      try {
+        const res = await fetch('/api/timeline');
+        const json = await res.json();
+        if (json && json.success && json.data) {
+          state = json.data;
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+          render();
+        }
+      } catch(e) {}
+    }
 
     /* ═══════════════════════════════════════
        DATA HELPERS
@@ -1897,6 +1928,7 @@
        ═══════════════════════════════════════ */
     document.getElementById('sidebar').classList.toggle('collapsed', !state.sidebarOpen);
     render();
+    fetchCloudState();
 
     window.addEventListener('resize', () => {
       renderTimeline();
