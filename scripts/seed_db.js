@@ -1,0 +1,125 @@
+require('dotenv').config({ path: '.env.local' });
+const { neon } = require('@neondatabase/serverless');
+
+const INITIAL_DATASET = {
+  projects: [
+    {
+      id: "proj_maxmar_3",
+      name: "Maxmar Fase 3",
+      color: 0,
+      expanded: true,
+      tasks: [
+        {
+          id: "task_1",
+          name: "[New] Penambahan fitur rekapitulasi data",
+          pic: "Rayyan",
+          startDate: "2026-08-05",
+          endDate: "2026-08-06"
+        },
+        {
+          id: "task_2",
+          name: "Backend Module Optimization",
+          pic: "Andi",
+          startDate: "2026-08-08",
+          endDate: "2026-08-20"
+        },
+        {
+          id: "task_3",
+          name: "User Acceptance Testing",
+          pic: "Wildan",
+          startDate: "2026-08-21",
+          endDate: "2026-08-28"
+        }
+      ]
+    },
+    {
+      id: "proj_admf_cb",
+      name: "ADMF Chatbot",
+      color: 1,
+      expanded: true,
+      tasks: [
+        {
+          id: "task_4",
+          name: "Flow Assessment & Intent Mapping",
+          pic: "Wildan",
+          startDate: "2026-08-01",
+          endDate: "2026-08-10"
+        },
+        {
+          id: "task_5",
+          name: "Middleware Dev",
+          pic: "Budi",
+          startDate: "2026-08-11",
+          endDate: "2026-08-22"
+        },
+        {
+          id: "task_6",
+          name: "Internal Testing",
+          pic: "Sari",
+          startDate: "2026-08-23",
+          endDate: "2026-09-01"
+        }
+      ]
+    },
+    {
+      id: "proj_bcas_api",
+      name: "BCAS API Integration",
+      color: 2,
+      expanded: true,
+      tasks: [
+        {
+          id: "task_7",
+          name: "API Mapping",
+          pic: "Reza",
+          startDate: "2026-08-03",
+          endDate: "2026-08-14"
+        },
+        {
+          id: "task_8",
+          name: "Integration Dev",
+          pic: "Budi",
+          startDate: "2026-08-15",
+          endDate: "2026-08-28"
+        }
+      ]
+    }
+  ],
+  sidebarOpen: true,
+  picWorkloadCollapsed: false,
+  filters: { startDate: "", endDate: "", projects: [], pics: [] }
+};
+
+async function seed() {
+  const dbUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+  if (!dbUrl) {
+    console.error('No POSTGRES_URL or DATABASE_URL found in .env.local');
+    process.exit(1);
+  }
+
+  const dbSql = neon(dbUrl);
+
+  console.log('Creating table timeline_data if not exists...');
+  await dbSql`
+    CREATE TABLE IF NOT EXISTS timeline_data (
+      id VARCHAR(50) PRIMARY KEY,
+      data JSONB NOT NULL,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+
+  console.log('Seeding initial CSV dataset into timeline_data...');
+  const jsonString = JSON.stringify(INITIAL_DATASET);
+  await dbSql`
+    INSERT INTO timeline_data (id, data, updated_at)
+    VALUES ('main', ${jsonString}::jsonb, NOW())
+    ON CONFLICT (id) DO UPDATE
+    SET data = ${jsonString}::jsonb, updated_at = NOW();
+  `;
+
+  console.log('Successfully seeded database with CSV dataset!');
+}
+
+seed().catch(err => {
+  console.error('Seed error:', err);
+  process.exit(1);
+});

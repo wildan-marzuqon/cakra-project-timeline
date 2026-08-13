@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/projects/:id", "destination": "/api/projects/[id].js" },
+    { "source": "/api/projects", "destination": "/api/projects/index.js" },
+    { "source": "/api/tasks/:id", "destination": "/api/tasks/[id].js" },
+    { "source": "/api/tasks", "destination": "/api/tasks/index.js" },
+    { "source": "/api/seed", "destination": "/api/seed.js" }
+  ]
+}

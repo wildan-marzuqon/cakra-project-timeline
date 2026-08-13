@@ -1,9 +1,30 @@
-*
-!.gitignore
-!index.html
-!timeline.html
-!README.md
-!data/
-!data/**
-.vercel
-.env*
+node_modules/
+.env
+.env*.local
+.vercel/
+.DS_Store
+dist/
+build/
+
+# Draft temporary learning documents
+*.pptx
+*.xlsx
+*.docx
+*.numbers
+*.py
+*.txt
+.agents/
+assets/
+bcas/
+coll_10 jul/
+icr admf prod/
+maybank/
+maybank ss v2.0/
+pomodoro_timer/
+spend/
+template form maxmar/
+clean_shrimp_data.json
+data.json
+data1.json
+kes_udang_1.json
+kul_air_1.json
