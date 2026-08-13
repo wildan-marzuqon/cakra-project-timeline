@@ -1391,7 +1391,25 @@
       renderSidebar();
       setTimeout(() => { const inp = document.getElementById('inl_pname'); if(inp) inp.focus(); }, 50);
     }
-    function saveInlineAddProject() {
+    function saveStateLocal() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+    }
+
+    async function loadCloudData() {
+      try {
+        const res = await fetch('/api/projects');
+        const json = await res.json();
+        if (json && json.success && Array.isArray(json.projects)) {
+          state.projects = json.projects;
+          saveStateLocal();
+          render();
+        }
+      } catch(e) {
+        console.warn('API load failed, using local state:', e);
+      }
+    }
+
+    async function saveInlineAddProject() {
       const nameInp = document.getElementById('inl_pname');
       const name = nameInp ? nameInp.value.trim() : '';
       if (!name) {
@@ -1399,31 +1417,75 @@
         if (nameInp) nameInp.focus();
         return;
       }
-      state.projects.push({
-        id: uid(), name, color: state.projects.length % PALETTE.length,
-        expanded: true, tasks: []
-      });
       inlineEditState = null;
-      saveState(); render();
+      try {
+        const res = await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, color: state.projects.length % PALETTE.length })
+        });
+        const json = await res.json();
+        if (json && json.success && json.project) {
+          state.projects.push(json.project);
+        }
+      } catch(e) {
+        state.projects.push({ id: uid(), name, color: state.projects.length % PALETTE.length, expanded: true, tasks: [] });
+      }
+      saveStateLocal(); render();
     }
+
     function startInlineEditProj(id) {
       inlineEditState = { type: 'edit_proj', projectId: id };
       renderSidebar();
       setTimeout(() => { const inp = document.getElementById('inl_pname'); if(inp) inp.focus(); }, 50);
     }
-    function saveInlineProject(id) {
+
+    async function saveInlineProject(id) {
       const p = state.projects.find(x => x.id === id);
       const nameInp = document.getElementById('inl_pname');
       const name = nameInp ? nameInp.value.trim() : '';
       if (p && name) {
         p.name = name;
         inlineEditState = null;
-        saveState(); render();
+        saveStateLocal(); render();
+        try {
+          await fetch(`/api/projects/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+          });
+        } catch(e) {}
       } else if (!name && nameInp) {
         alert('Mohon isi nama project.');
         nameInp.focus();
       }
     }
+
+    async function toggleProject(id) {
+      const p = state.projects.find(x => x.id === id);
+      if (p) {
+        p.expanded = !p.expanded;
+        saveStateLocal(); renderSidebar();
+        try {
+          await fetch(`/api/projects/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ expanded: p.expanded })
+          });
+        } catch(e) {}
+      }
+    }
+
+    async function deleteProject(id) {
+      const p = state.projects.find(x => x.id === id);
+      if (!p || !confirm(`Delete project "${p.name}" and all its tasks?`)) return;
+      state.projects = state.projects.filter(x => x.id !== id);
+      saveStateLocal(); render();
+      try {
+        await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+      } catch(e) {}
+    }
+
     function startInlineAddTask(projectId) {
       const p = state.projects.find(x => x.id === projectId);
       if (p) p.expanded = true;
@@ -1431,7 +1493,8 @@
       renderSidebar();
       setTimeout(() => { const inp = document.getElementById('inl_tname'); if(inp) inp.focus(); }, 50);
     }
-    function saveInlineAddTask(projectId) {
+
+    async function saveInlineAddTask(projectId) {
       const nameInp = document.getElementById('inl_tname');
       const picInp = document.getElementById('inl_tpic');
       const startInp = document.getElementById('inl_tstart');
@@ -1456,25 +1519,39 @@
         return;
       }
 
-      const p = state.projects.find(x => x.id === projectId);
-      if (p) {
-        p.tasks.push({ id: uid(), name, pic, startDate, endDate });
-        inlineEditState = null;
-        // If active filters hide the new task, reset filter state so the task is visible
-        if (state.filters.startDate || state.filters.endDate || state.filters.pics.length > 0) {
-          state.filters.startDate = '';
-          state.filters.endDate = '';
-          state.filters.pics = [];
+      inlineEditState = null;
+
+      try {
+        const res = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId, name, pic, startDate, endDate })
+        });
+        const json = await res.json();
+        if (json && json.success && json.task) {
+          const p = state.projects.find(x => x.id === projectId);
+          if (p) p.tasks.push(json.task);
         }
-        saveState(); render();
+      } catch(e) {
+        const p = state.projects.find(x => x.id === projectId);
+        if (p) p.tasks.push({ id: uid(), name, pic, startDate, endDate });
       }
+
+      if (state.filters.startDate || state.filters.endDate || state.filters.pics.length > 0) {
+        state.filters.startDate = '';
+        state.filters.endDate = '';
+        state.filters.pics = [];
+      }
+      saveStateLocal(); render();
     }
+
     function startInlineEditTask(projectId, taskId) {
       inlineEditState = { type: 'edit_task', projectId, taskId };
       renderSidebar();
       setTimeout(() => { const inp = document.getElementById('inl_tname'); if(inp) inp.focus(); }, 50);
     }
-    function saveInlineTask(projectId, taskId) {
+
+    async function saveInlineTask(projectId, taskId) {
       const p = state.projects.find(x => x.id === projectId);
       if (!p) return;
       const t = p.tasks.find(x => x.id === taskId);
@@ -1510,7 +1587,27 @@
       t.endDate = endDate;
 
       inlineEditState = null;
-      saveState(); render();
+      saveStateLocal(); render();
+
+      try {
+        await fetch(`/api/tasks/${taskId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, pic, startDate, endDate })
+        });
+      } catch(e) {}
+    }
+
+    async function deleteTask(projectId, taskId) {
+      const proj = state.projects.find(p => p.id === projectId);
+      if (!proj) return;
+      const t = proj.tasks.find(x => x.id === taskId);
+      if (!t || !confirm(`Delete task "${t.name}"?`)) return;
+      proj.tasks = proj.tasks.filter(x => x.id !== taskId);
+      saveStateLocal(); render();
+      try {
+        await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+      } catch(e) {}
     }
 
     /* ═══════════════════════════════════════
@@ -1928,7 +2025,7 @@
        ═══════════════════════════════════════ */
     document.getElementById('sidebar').classList.toggle('collapsed', !state.sidebarOpen);
     render();
-    fetchCloudState();
+    loadCloudData();
 
     window.addEventListener('resize', () => {
       renderTimeline();

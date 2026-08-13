@@ -1,27 +1,27 @@
 {
   "projects": [
     {
-      "id": "proj_maxmar_3",
+      "id": "p_maxmar_3",
       "name": "Maxmar Fase 3",
       "color": 0,
       "expanded": true,
       "tasks": [
         {
-          "id": "task_1",
+          "id": "t_1",
           "name": "[New] Penambahan fitur rekapitulasi data",
           "pic": "Rayyan",
           "startDate": "2026-08-05",
           "endDate": "2026-08-06"
         },
         {
-          "id": "task_2",
+          "id": "t_2",
           "name": "Backend Module Optimization",
           "pic": "Andi",
           "startDate": "2026-08-08",
           "endDate": "2026-08-20"
         },
         {
-          "id": "task_3",
+          "id": "t_3",
           "name": "User Acceptance Testing",
           "pic": "Wildan",
           "startDate": "2026-08-21",
@@ -30,27 +30,27 @@
       ]
     },
     {
-      "id": "proj_admf_cb",
+      "id": "p_admf_cb",
       "name": "ADMF Chatbot",
       "color": 1,
       "expanded": true,
       "tasks": [
         {
-          "id": "task_4",
+          "id": "t_4",
           "name": "Flow Assessment & Intent Mapping",
           "pic": "Wildan",
           "startDate": "2026-08-01",
           "endDate": "2026-08-10"
         },
         {
-          "id": "task_5",
+          "id": "t_5",
           "name": "Middleware Dev",
           "pic": "Budi",
           "startDate": "2026-08-11",
           "endDate": "2026-08-22"
         },
         {
-          "id": "task_6",
+          "id": "t_6",
           "name": "Internal Testing",
           "pic": "Sari",
           "startDate": "2026-08-23",
@@ -59,20 +59,20 @@
       ]
     },
     {
-      "id": "proj_bcas_api",
+      "id": "p_bcas_api",
       "name": "BCAS API Integration",
       "color": 2,
       "expanded": true,
       "tasks": [
         {
-          "id": "task_7",
+          "id": "t_7",
           "name": "API Mapping",
           "pic": "Reza",
           "startDate": "2026-08-03",
           "endDate": "2026-08-14"
         },
         {
-          "id": "task_8",
+          "id": "t_8",
           "name": "Integration Dev",
           "pic": "Budi",
           "startDate": "2026-08-15",
@@ -80,13 +80,5 @@
         }
       ]
     }
-  ],
-  "sidebarOpen": true,
-  "picWorkloadCollapsed": false,
-  "filters": {
-    "startDate": "",
-    "endDate": "",
-    "projects": [],
-    "pics": []
-  }
+  ]
 }
