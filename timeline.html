@@ -1,0 +1,1913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cakra Project Timeline</title>
+  <meta name="description" content="Visual project task timeline for managing and tracking team workload across multiple projects.">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    /* ═══════════════════════════════════════
+       CSS VARIABLES
+       ═══════════════════════════════════════ */
+    :root {
+      --sidebar-w: 310px;
+      --day-w: 34px;
+      --row-h: 44px;
+      --header-h: 56px;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-xs: 5px;
+      --shadow-xs: 0 1px 2px rgba(0,0,0,.04);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+      --shadow-md: 0 4px 14px rgba(0,0,0,.08);
+      --shadow-lg: 0 12px 32px rgba(0,0,0,.11);
+      --shadow-xl: 0 20px 48px rgba(0,0,0,.15);
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --bg: #f2f4f8;
+      --surface: #ffffff;
+      --surface-2: #f7f8fc;
+      --border: #e2e6f0;
+      --border-light: #eaedf5;
+      --text-1: #11141d;
+      --text-2: #4a5162;
+      --text-3: #828a9a;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --primary-light: #eef2ff;
+      --primary-ultra-light: #f5f7ff;
+      --danger: #e11d48;
+      --danger-light: #fff1f2;
+      --success: #10b981;
+      --success-light: #ecfdf5;
+      --weekend-bg: rgba(79, 70, 229, .03);
+      --today-color: #e11d48;
+      --ease: cubic-bezier(.4, 0, .2, 1);
+      --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+    }
+
+    /* ═══════════════════════════════════════
+       RESET & BASE (Larger Font Size)
+       ═══════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; -webkit-font-smoothing: antialiased; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text-1);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+    }
+    button { font-family: inherit; cursor: pointer; border: none; background: none; font-size: inherit; color: inherit; }
+    input, select { font-family: inherit; font-size: inherit; }
+    ::-webkit-scrollbar { width: 7px; height: 7px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #caccda; border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: #abafc2; }
+
+    /* ═══════════════════════════════════════
+       LAYOUT
+       ═══════════════════════════════════════ */
+    .app { display: flex; width: 100%; height: 100vh; }
+    .sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      transition: width .3s var(--ease), min-width .3s var(--ease), opacity .3s var(--ease);
+      z-index: 20;
+      overflow: hidden;
+    }
+    .sidebar.collapsed { width: 0; min-width: 0; border-right: none; }
+    .sidebar.collapsed .sidebar-inner { opacity: 0; pointer-events: none; }
+    .sidebar-inner {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: var(--sidebar-w);
+      transition: opacity .2s var(--ease);
+    }
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    /* ═══════════════════════════════════════
+       SIDEBAR
+       ═══════════════════════════════════════ */
+    .sidebar-head {
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid var(--border-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .sidebar-head h2 {
+      font-size: .85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-3);
+    }
+    .sidebar-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 0;
+    }
+    .sidebar-foot {
+      padding: 12px 18px;
+      border-top: 1px solid var(--border-light);
+      flex-shrink: 0;
+      display: flex;
+      gap: 8px;
+    }
+    .sidebar-foot button {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px;
+      border-radius: var(--radius-sm);
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--text-2);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      transition: all .15s var(--ease);
+    }
+    .sidebar-foot button:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+    .sidebar-foot button svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+    /* Project Items */
+    .project-item { margin: 0 10px 4px; }
+    .project-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background .15s var(--ease);
+      position: relative;
+    }
+    .project-head:hover { background: var(--surface-2); }
+    .project-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .project-head .name {
+      flex: 1;
+      font-size: .88rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .project-actions {
+      display: flex;
+      gap: 2px;
+      opacity: 0;
+      transition: opacity .15s var(--ease);
+    }
+    .project-head:hover .project-actions { opacity: 1; }
+    .project-actions button {
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-xs);
+      color: var(--text-3);
+      transition: all .15s var(--ease);
+    }
+    .project-actions button:hover { background: var(--border-light); color: var(--text-1); }
+    .project-actions button.danger:hover { background: var(--danger-light); color: var(--danger); }
+    .chevron-icon {
+      width: 16px;
+      height: 16px;
+      color: var(--text-3);
+      transition: transform .2s var(--ease);
+      flex-shrink: 0;
+    }
+    .project-head.expanded .chevron-icon { transform: rotate(90deg); }
+    .project-tasks {
+      overflow: hidden;
+      transition: max-height .3s var(--ease);
+    }
+
+    /* Task Item in Sidebar */
+    .task-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 7px 10px 7px 30px;
+      border-radius: var(--radius-xs);
+      margin: 2px 4px;
+      cursor: default;
+      transition: background .15s var(--ease);
+      position: relative;
+    }
+    .task-item:hover { background: var(--surface-2); }
+    .task-item::before {
+      content: '';
+      position: absolute;
+      left: 19px;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--border-light);
+    }
+    .task-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .task-info .task-name {
+      font-size: .83rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .task-info .task-meta {
+      font-size: .72rem;
+      color: var(--text-3);
+      display: flex;
+      gap: 8px;
+      margin-top: 2px;
+    }
+    .task-actions {
+      display: flex;
+      gap: 2px;
+      opacity: 0;
+      transition: opacity .15s var(--ease);
+    }
+    .task-item:hover .task-actions { opacity: 1; }
+    .task-actions button {
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-xs);
+      color: var(--text-3);
+    }
+    .task-actions button:hover { background: var(--border-light); color: var(--text-1); }
+    .task-actions button.danger:hover { background: var(--danger-light); color: var(--danger); }
+
+    /* INLINE EDIT FORM */
+    .inline-form {
+      margin: 4px 4px 6px 26px;
+      padding: 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: var(--shadow-xs);
+      animation: inlineFormIn .2s var(--ease);
+    }
+    @keyframes inlineFormIn { from { opacity: 0; transform: translateY(-4px); } }
+    .inline-form input {
+      width: 100%;
+      padding: 6px 9px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      font-size: .8rem;
+      background: var(--surface);
+      color: var(--text-1);
+      outline: none;
+    }
+    .inline-form input:focus { border-color: var(--primary); }
+    .inline-form-row { display: flex; gap: 6px; }
+    .inline-form-row input { flex: 1; min-width: 0; }
+    .inline-form-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 2px; }
+    .inline-form-actions button {
+      padding: 5px 12px;
+      border-radius: var(--radius-xs);
+      font-size: .75rem;
+      font-weight: 600;
+    }
+    .btn-inline-cancel { border: 1px solid var(--border); color: var(--text-2); background: var(--surface); }
+    .btn-inline-cancel:hover { background: var(--border-light); }
+    .btn-inline-save { background: var(--primary); color: white; }
+    .btn-inline-save:hover { background: var(--primary-hover); }
+
+    .add-task-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px 6px 30px;
+      margin: 4px 4px;
+      font-size: .78rem;
+      font-weight: 500;
+      color: var(--text-3);
+      border-radius: var(--radius-xs);
+      transition: all .15s var(--ease);
+    }
+    .add-task-btn:hover { color: var(--primary); background: var(--primary-ultra-light); }
+    .add-project-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin: 10px 14px 6px;
+      padding: 9px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+      font-size: .82rem;
+      font-weight: 600;
+      color: var(--text-3);
+      transition: all .15s var(--ease);
+    }
+    .add-project-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-ultra-light); }
+
+    /* ═══════════════════════════════════════
+       MAIN HEADER
+       ═══════════════════════════════════════ */
+    .main-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      flex-shrink: 0;
+      background: var(--bg);
+    }
+    .main-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .sidebar-toggle {
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-sm);
+      color: var(--text-2);
+      transition: all .15s var(--ease);
+    }
+    .sidebar-toggle:hover { background: var(--surface); color: var(--text-1); box-shadow: var(--shadow-xs); }
+    .main-header h1 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: -.02em;
+      color: var(--text-1);
+    }
+    .main-header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 16px;
+      border-radius: 99px;
+      font-size: .82rem;
+      font-weight: 600;
+      transition: all .15s var(--ease);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-2);
+      box-shadow: var(--shadow-xs);
+    }
+    .btn-pill:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-pill.active { background: var(--primary); color: white; border-color: var(--primary); }
+    .btn-pill svg { width: 15px; height: 15px; }
+    .filter-count {
+      background: var(--primary);
+      color: white;
+      font-size: .65rem;
+      font-weight: 700;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ═══════════════════════════════════════
+       FILTER POPUP
+       ═══════════════════════════════════════ */
+    .filter-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+    }
+    .filter-overlay.show { display: block; }
+    .filter-popup {
+      position: absolute;
+      top: calc(var(--header-h) + 8px);
+      right: 24px;
+      width: 350px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      padding: 18px;
+      animation: slideDown .2s var(--ease-spring);
+      z-index: 51;
+    }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-8px) scale(.97); } }
+    .filter-section { margin-bottom: 16px; }
+    .filter-section:last-child { margin-bottom: 0; }
+    .filter-label {
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--text-3);
+      margin-bottom: 8px;
+    }
+    .filter-dates {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .filter-dates input {
+      flex: 1;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: .8rem;
+      color: var(--text-1);
+      outline: none;
+      transition: border-color .15s var(--ease);
+    }
+    .filter-dates input:focus { border-color: var(--primary); }
+    .filter-dates span { font-size: .75rem; color: var(--text-3); }
+    .filter-checkboxes {
+      max-height: 140px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .filter-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 7px;
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .filter-check:hover { background: var(--surface-2); }
+    .filter-check input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+    .filter-check label {
+      font-size: .8rem;
+      cursor: pointer;
+      flex: 1;
+    }
+    .filter-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-light);
+    }
+    .filter-actions button {
+      flex: 1;
+      padding: 8px;
+      border-radius: var(--radius-sm);
+      font-size: .8rem;
+      font-weight: 600;
+      transition: all .15s var(--ease);
+    }
+    .btn-reset { border: 1px solid var(--border); color: var(--text-2); }
+    .btn-reset:hover { background: var(--surface-2); }
+    .btn-apply { background: var(--primary); color: white; }
+    .btn-apply:hover { background: var(--primary-hover); }
+
+    /* ═══════════════════════════════════════
+       TIMELINE CONTAINER & SCROLL
+       ═══════════════════════════════════════ */
+    .timeline-container {
+      flex: 1;
+      margin: 0 24px;
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      position: relative;
+    }
+    .timeline-scroll {
+      flex: 1;
+      overflow: auto;
+      position: relative;
+      width: 100%;
+    }
+    .timeline-inner {
+      min-width: 100%;
+      position: relative;
+      box-sizing: border-box;
+    }
+    .tl-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      width: 100%;
+    }
+    .tl-row {
+      display: flex;
+      width: 100%;
+    }
+    .tl-month-row {
+      border-bottom: 1px solid var(--border-light);
+    }
+    .tl-month-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 28px;
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-2);
+      border-right: 1px solid var(--border-light);
+      background: var(--surface-2);
+      box-sizing: border-box;
+    }
+    .tl-week-row {
+      border-bottom: 1px solid var(--border-light);
+    }
+    .tl-week-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 24px;
+      font-size: .7rem;
+      font-weight: 600;
+      color: var(--text-3);
+      border-right: 1px solid var(--border-light);
+      box-sizing: border-box;
+    }
+    .tl-day-row {
+      display: flex;
+      width: 100%;
+    }
+    .tl-day-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--day-w);
+      min-width: var(--day-w);
+      height: 26px;
+      font-size: .7rem;
+      font-weight: 500;
+      color: var(--text-3);
+      border-right: 1px solid var(--border-light);
+      box-sizing: border-box;
+    }
+    .tl-day-cell.weekend { background: var(--weekend-bg); color: var(--text-3); }
+    .tl-day-cell.today {
+      background: var(--danger-light);
+      color: var(--today-color);
+      font-weight: 700;
+    }
+
+    /* Timeline body */
+    .tl-body {
+      position: relative;
+      width: 100%;
+    }
+    .tl-project-group {
+      border-bottom: 1px solid var(--border-light);
+    }
+    .tl-project-group:last-child { border-bottom: none; }
+    .tl-project-header-row {
+      position: relative;
+      width: 100%;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border-light);
+    }
+    .tl-project-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 14px 4px 12px;
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--text-1);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--primary);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      box-shadow: var(--shadow-sm);
+      position: sticky;
+      left: 0;
+      z-index: 8;
+      white-space: nowrap;
+    }
+    .tl-project-label .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .tl-task-row {
+      position: relative;
+      height: var(--row-h);
+      border-bottom: 1px solid var(--border-light);
+      width: 100%;
+      background-image: repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent calc(var(--day-w) - 1px),
+        var(--border-light) calc(var(--day-w) - 1px),
+        var(--border-light) var(--day-w)
+      );
+    }
+    .tl-task-row:last-child { border-bottom: none; }
+
+    /* Weekend columns overlay */
+    .weekend-col {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      background: var(--weekend-bg);
+      pointer-events: none;
+      z-index: 1;
+    }
+    /* Today line */
+    .today-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--today-color);
+      z-index: 4;
+      opacity: .7;
+    }
+    .today-line::before {
+      content: 'Today';
+      position: absolute;
+      top: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: .6rem;
+      font-weight: 700;
+      color: var(--today-color);
+      white-space: nowrap;
+      background: var(--surface);
+      padding: 1px 6px;
+      border-radius: 3px;
+      box-shadow: var(--shadow-xs);
+    }
+
+    /* Task bars with text overflow support */
+    .task-bar-wrapper {
+      position: absolute;
+      top: 7px;
+      height: calc(var(--row-h) - 14px);
+      display: flex;
+      align-items: center;
+      z-index: 3;
+      pointer-events: auto;
+    }
+    .task-bar-wrapper:hover {
+      z-index: 10;
+    }
+    .task-bar-block {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.10);
+      transition: filter .15s var(--ease), transform .15s var(--ease), box-shadow .15s var(--ease);
+      pointer-events: none;
+      box-sizing: border-box;
+    }
+    .task-bar-wrapper:hover .task-bar-block {
+      filter: brightness(.96);
+      transform: scaleY(1.05);
+      box-shadow: 0 3px 8px rgba(0,0,0,.16);
+    }
+    .task-bar-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 0 8px;
+      font-size: .75rem;
+      font-weight: 600;
+      white-space: nowrap;
+      pointer-events: auto;
+      cursor: default;
+    }
+    .task-bar-content .bar-name { font-weight: 600; }
+    .task-bar-content .bar-pic {
+      font-weight: 500;
+      opacity: .85;
+      font-size: .7rem;
+    }
+    .task-bar-content .bar-separator {
+      opacity: .35;
+      font-size: .65rem;
+    }
+
+    /* Tooltip */
+    .task-bar-tooltip {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 0;
+      background: var(--text-1);
+      color: white;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      font-size: .75rem;
+      font-weight: 400;
+      white-space: nowrap;
+      z-index: 100;
+      box-shadow: var(--shadow-lg);
+      pointer-events: none;
+    }
+    .task-bar-wrapper:hover .task-bar-tooltip { display: block; }
+    .task-bar-tooltip strong { font-weight: 600; }
+    .task-bar-tooltip .tt-row { margin-top: 3px; opacity: .85; }
+
+    /* ═══════════════════════════════════════
+       EMPTY STATE
+       ═══════════════════════════════════════ */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 56px 24px;
+      text-align: center;
+      color: var(--text-3);
+    }
+    .empty-state svg { width: 52px; height: 52px; margin-bottom: 14px; opacity: .4; }
+    .empty-state p { font-size: .85rem; max-width: 300px; line-height: 1.5; }
+
+    /* ═══════════════════════════════════════
+       PIC SUMMARY & MINIMIZE SUPPORT
+       ═══════════════════════════════════════ */
+    .pic-section {
+      margin: 12px 24px 16px;
+      flex-shrink: 0;
+    }
+    .pic-section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .pic-section-head-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .pic-section-head h3 {
+      font-size: .8rem;
+      font-weight: 700;
+      color: var(--text-2);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .pic-toggle-btn {
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-xs);
+      color: var(--text-3);
+      transition: background .15s, color .15s;
+    }
+    .pic-toggle-btn:hover { background: var(--surface-2); color: var(--text-1); }
+    .pic-section-head #picChevron {
+      transition: transform .25s var(--ease);
+    }
+    .pic-section.collapsed #picChevron {
+      transform: rotate(-180deg);
+    }
+    .pic-grid {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      transition: max-height .3s var(--ease), opacity .25s var(--ease);
+      max-height: 320px;
+      opacity: 1;
+    }
+    .pic-section.collapsed .pic-grid {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      padding-bottom: 0;
+      pointer-events: none;
+    }
+    .pic-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      min-width: 200px;
+      max-width: 260px;
+      flex-shrink: 0;
+      box-shadow: var(--shadow-xs);
+      transition: box-shadow .15s var(--ease);
+    }
+    .pic-card:hover { box-shadow: var(--shadow-md); }
+    .pic-card-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .pic-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .72rem;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+    }
+    .pic-card-head .pic-name {
+      font-size: .85rem;
+      font-weight: 700;
+    }
+    .pic-card-head .pic-count {
+      font-size: .7rem;
+      color: var(--text-3);
+      margin-left: auto;
+      background: var(--surface-2);
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-weight: 700;
+    }
+    .pic-task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .pic-task-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .74rem;
+      color: var(--text-2);
+      padding: 3px 0;
+    }
+    .pic-task-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .pic-task-item .pti-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .pic-task-item .pti-dates {
+      font-size: .68rem;
+      color: var(--text-3);
+      white-space: nowrap;
+    }
+
+    /* ═══════════════════════════════════════
+       ANIMATIONS
+       ═══════════════════════════════════════ */
+    @keyframes barSlideIn {
+      from { transform: scaleX(0); transform-origin: left; opacity: 0; }
+      to { transform: scaleX(1); opacity: 1; }
+    }
+    .task-bar-wrapper.animate { animation: barSlideIn .35s var(--ease) backwards; }
+
+    /* ═══════════════════════════════════════
+       RESPONSIVE
+       ═══════════════════════════════════════ */
+    @media (max-width: 768px) {
+      .sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 30; box-shadow: var(--shadow-xl); }
+      .sidebar.collapsed { transform: translateX(-100%); }
+      .filter-popup { width: calc(100vw - 48px); right: 24px; }
+      .pic-card { min-width: 170px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-inner">
+        <div class="sidebar-head">
+          <h2>Projects & Tasks</h2>
+          <button class="sidebar-toggle" onclick="toggleSidebar()" title="Collapse sidebar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+          </button>
+        </div>
+        <div class="sidebar-body" id="sidebarBody">
+          <!-- Rendered by JS -->
+        </div>
+        <div class="sidebar-foot">
+          <button onclick="exportToExcel()" title="Export to Excel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Excel
+          </button>
+          <button onclick="exportJSON()" title="Backup data as JSON">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            JSON
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+      <header class="main-header">
+        <div class="main-header-left">
+          <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <h1>Cakra Project Timeline</h1>
+        </div>
+        <div class="main-header-right">
+          <button class="btn-pill" onclick="scrollToToday()" title="Scroll to today">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Today
+          </button>
+          <button class="btn-pill" id="filterBtn" onclick="toggleFilter()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            Filter
+          </button>
+        </div>
+      </header>
+
+      <!-- Filter popup -->
+      <div class="filter-overlay" id="filterOverlay" onclick="closeFilter(event)">
+        <div class="filter-popup" id="filterPopup" onclick="event.stopPropagation()">
+          <div class="filter-section">
+            <div class="filter-label">Date Range</div>
+            <div class="filter-dates">
+              <input type="date" id="filterStart">
+              <span>—</span>
+              <input type="date" id="filterEnd">
+            </div>
+          </div>
+          <div class="filter-section">
+            <div class="filter-label">Projects</div>
+            <div class="filter-checkboxes" id="filterProjects"></div>
+          </div>
+          <div class="filter-section">
+            <div class="filter-label">Team Members</div>
+            <div class="filter-checkboxes" id="filterPics"></div>
+          </div>
+          <div class="filter-actions">
+            <button class="btn-reset" onclick="resetFilters()">Reset</button>
+            <button class="btn-apply" onclick="applyFilters()">Apply</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div class="timeline-container" id="timelineContainer">
+        <div class="timeline-scroll" id="timelineScroll">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- PIC Summary -->
+      <div class="pic-section" id="picSection">
+        <div class="pic-section-head" onclick="togglePicWorkload()">
+          <div class="pic-section-head-left">
+            <h3>Team Workload</h3>
+          </div>
+          <button class="pic-toggle-btn" title="Toggle Team Workload">
+            <svg class="chevron-icon" id="picChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+        <div class="pic-grid" id="picGrid">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    /* ═══════════════════════════════════════
+       CONSTANTS
+       ═══════════════════════════════════════ */
+    const STORAGE_KEY = 'cakra-timeline-v3';
+    const PALETTE = [
+      { primary: '#4F46E5', bg: '#DBEAFE', border: '#93C5FD', text: '#1E3A8A' },
+      { primary: '#D97706', bg: '#FEF08A', border: '#FDE047', text: '#713F12' },
+      { primary: '#059669', bg: '#A7F3D0', border: '#6EE7B7', text: '#064E3B' },
+      { primary: '#DB2777', bg: '#FBCFE8', border: '#F9A8D4', text: '#831843' },
+      { primary: '#7C3AED', bg: '#DDD6FE', border: '#C4B5FD', text: '#4C1D95' },
+      { primary: '#0891B2', bg: '#BAE6FD', border: '#7DD3FC', text: '#0C4A6E' },
+      { primary: '#E11D48', bg: '#FECDD3', border: '#FDA4AF', text: '#881337' },
+      { primary: '#65A30D', bg: '#D9F99D', border: '#BEF264', text: '#365314' },
+      { primary: '#EA580C', bg: '#FFEDD5', border: '#FDBA74', text: '#7C2D12' },
+      { primary: '#0D9488', bg: '#99F6E4', border: '#5EEAD4', text: '#134E4A' },
+    ];
+    const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    /* ═══════════════════════════════════════
+       STATE
+       ═══════════════════════════════════════ */
+    let state = loadState() || defaultState();
+    let inlineEditState = null;
+
+    function defaultState() {
+      return {
+        projects: [
+          {
+            id: uid(), name: 'Maxmar Fase 3', color: 0, expanded: true,
+            tasks: [
+              { id: uid(), name: '[New] Penambahan fitur rekapitulasi data', pic: 'Rayyan', startDate: '2026-08-05', endDate: '2026-08-06' },
+              { id: uid(), name: 'Backend Module Optimization', pic: 'Andi', startDate: '2026-08-08', endDate: '2026-08-20' },
+              { id: uid(), name: 'User Acceptance Testing', pic: 'Wildan', startDate: '2026-08-21', endDate: '2026-08-28' },
+            ]
+          },
+          {
+            id: uid(), name: 'ADMF Chatbot', color: 1, expanded: true,
+            tasks: [
+              { id: uid(), name: 'Flow Assessment & Intent Mapping', pic: 'Wildan', startDate: '2026-08-01', endDate: '2026-08-10' },
+              { id: uid(), name: 'Middleware Dev', pic: 'Budi', startDate: '2026-08-11', endDate: '2026-08-22' },
+              { id: uid(), name: 'Internal Testing', pic: 'Sari', startDate: '2026-08-23', endDate: '2026-09-01' },
+            ]
+          },
+          {
+            id: uid(), name: 'BCAS API Integration', color: 2, expanded: true,
+            tasks: [
+              { id: uid(), name: 'API Mapping', pic: 'Reza', startDate: '2026-08-03', endDate: '2026-08-14' },
+              { id: uid(), name: 'Integration Dev', pic: 'Budi', startDate: '2026-08-15', endDate: '2026-08-28' },
+            ]
+          }
+        ],
+        sidebarOpen: true,
+        picWorkloadCollapsed: false,
+        filters: { startDate: '', endDate: '', projects: [], pics: [] }
+      };
+    }
+
+    /* ═══════════════════════════════════════
+       UTILITIES
+       ═══════════════════════════════════════ */
+    function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+    function parseD(s) { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
+    function fmtISO(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+    function fmtShort(d) { return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`; }
+    function fmtMedium(d) { return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`; }
+    function daysDiff(a, b) { return Math.round((b - a) / 86400000); }
+    function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+    function isSameDay(a, b) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+    function isWeekend(d) { const day = d.getDay(); return day === 0 || day === 6; }
+    function getWeekNum(d) {
+      const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+      const y = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+      return Math.ceil(((t - y) / 86400000 + 1) / 7);
+    }
+    function clr(project) { return PALETTE[project.color % PALETTE.length]; }
+
+    const textMeasureCanvas = document.createElement('canvas');
+    const textMeasureCtx = textMeasureCanvas.getContext('2d');
+
+    function getExactTextWidth(name, pic) {
+      const str = `${name} · ${pic}`;
+      textMeasureCtx.font = "600 11.25px Inter, -apple-system, BlinkMacSystemFont, sans-serif";
+      const width = textMeasureCtx.measureText(str).width;
+      return Math.ceil(width + 16);
+    }
+
+    /* ═══════════════════════════════════════
+       PERSISTENCE
+       ═══════════════════════════════════════ */
+    function saveState() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {} }
+    function loadState() { try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : null; } catch(e) { return null; } }
+
+    /* ═══════════════════════════════════════
+       DATA HELPERS
+       ═══════════════════════════════════════ */
+    function getAllPics() {
+      const s = new Set();
+      state.projects.forEach(p => p.tasks.forEach(t => s.add(t.pic)));
+      return [...s].sort();
+    }
+
+    function getFilteredProjects() {
+      let projects = state.projects;
+      const f = state.filters;
+      if (f.projects && f.projects.length > 0) {
+        projects = projects.filter(p => f.projects.includes(p.id));
+      }
+      const filterStart = f.startDate ? parseD(f.startDate) : null;
+      const filterEnd = f.endDate ? parseD(f.endDate) : null;
+
+      projects = projects.map(p => ({
+        ...p,
+        tasks: p.tasks.filter(t => {
+          if (f.pics && f.pics.length > 0 && !f.pics.includes(t.pic)) return false;
+          if (filterStart || filterEnd) {
+            const ts = parseD(t.startDate);
+            const te = parseD(t.endDate);
+            if (filterStart && te < filterStart) return false;
+            if (filterEnd && ts > filterEnd) return false;
+          }
+          return true;
+        })
+      })).filter(p => p.tasks.length > 0);
+
+      return projects;
+    }
+
+    function getTimelineRange(projects) {
+      const f = state.filters;
+      let minDate, maxDate;
+      if (f.startDate) minDate = parseD(f.startDate);
+      if (f.endDate) maxDate = parseD(f.endDate);
+
+      if (!minDate || !maxDate) {
+        let allDates = [];
+        projects.forEach(p => p.tasks.forEach(t => {
+          allDates.push(parseD(t.startDate));
+          allDates.push(parseD(t.endDate));
+        }));
+        if (allDates.length === 0) {
+          const today = new Date();
+          allDates = [addDays(today, -7), addDays(today, 30)];
+        }
+        if (!minDate) minDate = new Date(Math.min(...allDates.map(d => d.getTime())));
+        if (!maxDate) maxDate = new Date(Math.max(...allDates.map(d => d.getTime())));
+
+        minDate = addDays(minDate, -3);
+        maxDate = addDays(maxDate, 7);
+      }
+
+      while (minDate.getDay() !== 1) minDate = addDays(minDate, -1);
+      while (maxDate.getDay() !== 0) maxDate = addDays(maxDate, 1);
+
+      const container = document.getElementById('timelineContainer');
+      if (container) {
+        const containerW = container.clientWidth || 800;
+        const dayW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--day-w')) || 34;
+        const minDaysNeeded = Math.ceil(containerW / dayW);
+        const currentDays = daysDiff(minDate, maxDate) + 1;
+        if (currentDays < minDaysNeeded) {
+          const extraDays = minDaysNeeded - currentDays;
+          maxDate = addDays(maxDate, extraDays);
+          while (maxDate.getDay() !== 0) maxDate = addDays(maxDate, 1);
+        }
+      }
+
+      return { start: minDate, end: maxDate };
+    }
+
+    function getPicSummary(projects) {
+      const map = {};
+      projects.forEach(p => {
+        const c = clr(p);
+        p.tasks.forEach(t => {
+          if (!map[t.pic]) map[t.pic] = { name: t.pic, tasks: [] };
+          map[t.pic].tasks.push({ taskName: t.name, projectName: p.name, color: c, startDate: t.startDate, endDate: t.endDate });
+        });
+      });
+      return Object.values(map).sort((a,b) => b.tasks.length - a.tasks.length);
+    }
+
+    /* ═══════════════════════════════════════
+       RENDER: SIDEBAR
+       ═══════════════════════════════════════ */
+    function renderSidebar() {
+      const el = document.getElementById('sidebarBody');
+      const pics = getAllPics();
+      const picDatalist = `<datalist id="sidebarPicList">${pics.map(p => `<option value="${p}">`).join('')}</datalist>`;
+
+      if (state.projects.length === 0) {
+        el.innerHTML = `
+          <div class="empty-state" style="padding: 32px 16px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/></svg>
+            <p>No projects yet. Create one to start tracking.</p>
+          </div>
+        `;
+      } else {
+        el.innerHTML = picDatalist + state.projects.map(p => {
+          const c = clr(p);
+          const expanded = p.expanded !== false;
+          const isEditingProj = inlineEditState && inlineEditState.type === 'edit_proj' && inlineEditState.projectId === p.id;
+          const isAddingTask = inlineEditState && inlineEditState.type === 'add_task' && inlineEditState.projectId === p.id;
+
+          let projHeadHTML = '';
+          if (isEditingProj) {
+            projHeadHTML = `
+              <div class="inline-form" style="margin: 4px 8px 8px;">
+                <input type="text" id="inl_pname" value="${p.name}" placeholder="Project Name">
+                <div class="inline-form-actions">
+                  <button class="btn-inline-cancel" onclick="cancelInline()">Cancel</button>
+                  <button class="btn-inline-save" onclick="saveInlineProject('${p.id}')">Save</button>
+                </div>
+              </div>
+            `;
+          } else {
+            projHeadHTML = `
+              <div class="project-head ${expanded ? 'expanded' : ''}" onclick="toggleProject('${p.id}')">
+                <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <div class="project-dot" style="background:${c.primary}"></div>
+                <span class="name" title="${p.name}">${p.name}</span>
+                <div class="project-actions" onclick="event.stopPropagation()">
+                  <button onclick="startInlineEditProj('${p.id}')" title="Edit project">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                  <button class="danger" onclick="deleteProject('${p.id}')" title="Delete project">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                </div>
+              </div>
+            `;
+          }
+
+          return `
+            <div class="project-item">
+              ${projHeadHTML}
+              <div class="project-tasks" style="max-height:${expanded ? 1200 : 0}px">
+                ${p.tasks.map(t => {
+                  const isEditingTask = inlineEditState && inlineEditState.type === 'edit_task' && inlineEditState.taskId === t.id;
+                  if (isEditingTask) {
+                    return `
+                      <div class="inline-form">
+                        <input type="text" id="inl_tname" value="${t.name}" placeholder="Task Name">
+                        <input type="text" id="inl_tpic" value="${t.pic}" placeholder="PIC Name" list="sidebarPicList">
+                        <div class="inline-form-row">
+                          <input type="date" id="inl_tstart" value="${t.startDate}">
+                          <input type="date" id="inl_tend" value="${t.endDate}">
+                        </div>
+                        <div class="inline-form-actions">
+                          <button class="btn-inline-cancel" onclick="cancelInline()">Cancel</button>
+                          <button class="btn-inline-save" onclick="saveInlineTask('${p.id}','${t.id}')">Save</button>
+                        </div>
+                      </div>
+                    `;
+                  }
+                  return `
+                    <div class="task-item">
+                      <div class="task-info">
+                        <div class="task-name">${t.name}</div>
+                        <div class="task-meta">
+                          <span>${t.pic}</span>
+                          <span>${fmtShort(parseD(t.startDate))} – ${fmtShort(parseD(t.endDate))}</span>
+                        </div>
+                      </div>
+                      <div class="task-actions">
+                        <button onclick="startInlineEditTask('${p.id}','${t.id}')" title="Edit task">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                        <button class="danger" onclick="deleteTask('${p.id}','${t.id}')" title="Delete task">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+
+                ${isAddingTask ? `
+                  <div class="inline-form">
+                    <input type="text" id="inl_tname" placeholder="Nama Task" onkeydown="if(event.key==='Enter') saveInlineAddTask('${p.id}')">
+                    <input type="text" id="inl_tpic" placeholder="PIC (Opsional)" list="sidebarPicList" onkeydown="if(event.key==='Enter') saveInlineAddTask('${p.id}')">
+                    <div class="inline-form-row">
+                      <input type="date" id="inl_tstart" value="${fmtISO(new Date())}" onkeydown="if(event.key==='Enter') saveInlineAddTask('${p.id}')">
+                      <input type="date" id="inl_tend" value="${fmtISO(addDays(new Date(), 7))}" onkeydown="if(event.key==='Enter') saveInlineAddTask('${p.id}')">
+                    </div>
+                    <div class="inline-form-actions">
+                      <button type="button" class="btn-inline-cancel" onclick="cancelInline()">Cancel</button>
+                      <button type="button" class="btn-inline-save" onclick="saveInlineAddTask('${p.id}')">Add Task</button>
+                    </div>
+                  </div>
+                ` : `
+                  <button class="add-task-btn" onclick="startInlineAddTask('${p.id}')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Add task
+                  </button>
+                `}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      const isAddingProj = inlineEditState && inlineEditState.type === 'add_proj';
+      if (isAddingProj) {
+        el.innerHTML += `
+          <div class="inline-form" style="margin: 8px 14px;">
+            <input type="text" id="inl_pname" placeholder="New Project Name">
+            <div class="inline-form-actions">
+              <button class="btn-inline-cancel" onclick="cancelInline()">Cancel</button>
+              <button class="btn-inline-save" onclick="saveInlineAddProject()">Create Project</button>
+            </div>
+          </div>
+        `;
+      } else {
+        el.innerHTML += `<button class="add-project-btn" onclick="startInlineAddProject()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Project
+        </button>`;
+      }
+    }
+
+    /* ═══════════════════════════════════════
+       INLINE FORM ACTIONS
+       ═══════════════════════════════════════ */
+    function cancelInline() {
+      inlineEditState = null;
+      renderSidebar();
+    }
+    function startInlineAddProject() {
+      inlineEditState = { type: 'add_proj' };
+      renderSidebar();
+      setTimeout(() => { const inp = document.getElementById('inl_pname'); if(inp) inp.focus(); }, 50);
+    }
+    function saveInlineAddProject() {
+      const nameInp = document.getElementById('inl_pname');
+      const name = nameInp ? nameInp.value.trim() : '';
+      if (!name) {
+        alert('Mohon isi nama project.');
+        if (nameInp) nameInp.focus();
+        return;
+      }
+      state.projects.push({
+        id: uid(), name, color: state.projects.length % PALETTE.length,
+        expanded: true, tasks: []
+      });
+      inlineEditState = null;
+      saveState(); render();
+    }
+    function startInlineEditProj(id) {
+      inlineEditState = { type: 'edit_proj', projectId: id };
+      renderSidebar();
+      setTimeout(() => { const inp = document.getElementById('inl_pname'); if(inp) inp.focus(); }, 50);
+    }
+    function saveInlineProject(id) {
+      const p = state.projects.find(x => x.id === id);
+      const nameInp = document.getElementById('inl_pname');
+      const name = nameInp ? nameInp.value.trim() : '';
+      if (p && name) {
+        p.name = name;
+        inlineEditState = null;
+        saveState(); render();
+      } else if (!name && nameInp) {
+        alert('Mohon isi nama project.');
+        nameInp.focus();
+      }
+    }
+    function startInlineAddTask(projectId) {
+      const p = state.projects.find(x => x.id === projectId);
+      if (p) p.expanded = true;
+      inlineEditState = { type: 'add_task', projectId };
+      renderSidebar();
+      setTimeout(() => { const inp = document.getElementById('inl_tname'); if(inp) inp.focus(); }, 50);
+    }
+    function saveInlineAddTask(projectId) {
+      const nameInp = document.getElementById('inl_tname');
+      const picInp = document.getElementById('inl_tpic');
+      const startInp = document.getElementById('inl_tstart');
+      const endInp = document.getElementById('inl_tend');
+
+      const name = nameInp ? nameInp.value.trim() : '';
+      let pic = picInp ? picInp.value.trim() : '';
+      let startDate = startInp ? startInp.value : '';
+      let endDate = endInp ? endInp.value : '';
+
+      if (!name) {
+        alert('Mohon isi nama task.');
+        if (nameInp) nameInp.focus();
+        return;
+      }
+      if (!pic) pic = '-';
+      if (!startDate) startDate = fmtISO(new Date());
+      if (!endDate) endDate = startDate;
+
+      if (startDate > endDate) {
+        alert('Tanggal mulai harus sebelum atau sama dengan tanggal selesai.');
+        return;
+      }
+
+      const p = state.projects.find(x => x.id === projectId);
+      if (p) {
+        p.tasks.push({ id: uid(), name, pic, startDate, endDate });
+        inlineEditState = null;
+        // If active filters hide the new task, reset filter state so the task is visible
+        if (state.filters.startDate || state.filters.endDate || state.filters.pics.length > 0) {
+          state.filters.startDate = '';
+          state.filters.endDate = '';
+          state.filters.pics = [];
+        }
+        saveState(); render();
+      }
+    }
+    function startInlineEditTask(projectId, taskId) {
+      inlineEditState = { type: 'edit_task', projectId, taskId };
+      renderSidebar();
+      setTimeout(() => { const inp = document.getElementById('inl_tname'); if(inp) inp.focus(); }, 50);
+    }
+    function saveInlineTask(projectId, taskId) {
+      const p = state.projects.find(x => x.id === projectId);
+      if (!p) return;
+      const t = p.tasks.find(x => x.id === taskId);
+      if (!t) return;
+
+      const nameInp = document.getElementById('inl_tname');
+      const picInp = document.getElementById('inl_tpic');
+      const startInp = document.getElementById('inl_tstart');
+      const endInp = document.getElementById('inl_tend');
+
+      const name = nameInp ? nameInp.value.trim() : '';
+      let pic = picInp ? picInp.value.trim() : '';
+      let startDate = startInp ? startInp.value : '';
+      let endDate = endInp ? endInp.value : '';
+
+      if (!name) {
+        alert('Mohon isi nama task.');
+        if (nameInp) nameInp.focus();
+        return;
+      }
+      if (!pic) pic = '-';
+      if (!startDate) startDate = t.startDate || fmtISO(new Date());
+      if (!endDate) endDate = startDate;
+
+      if (startDate > endDate) {
+        alert('Tanggal mulai harus sebelum atau sama dengan tanggal selesai.');
+        return;
+      }
+
+      t.name = name;
+      t.pic = pic;
+      t.startDate = startDate;
+      t.endDate = endDate;
+
+      inlineEditState = null;
+      saveState(); render();
+    }
+
+    /* ═══════════════════════════════════════
+       RENDER: TIMELINE (With Text Overflow & Visual Track Packing)
+       ═══════════════════════════════════════ */
+    function renderTimeline() {
+      const scroll = document.getElementById('timelineScroll');
+      const projects = getFilteredProjects();
+
+      if (projects.length === 0 || projects.every(p => p.tasks.length === 0)) {
+        scroll.innerHTML = `
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <p>No matching tasks found for the selected filters.</p>
+          </div>`;
+        return;
+      }
+
+      const range = getTimelineRange(projects);
+      const totalDays = daysDiff(range.start, range.end) + 1;
+      const dayW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--day-w')) || 34;
+      const totalWidth = totalDays * dayW;
+      const today = new Date();
+      today.setHours(0,0,0,0);
+
+      // Build month cells
+      let monthsHTML = '';
+      let d = new Date(range.start);
+      while (d <= range.end) {
+        const monthStart = new Date(d);
+        const m = d.getMonth();
+        let count = 0;
+        while (d <= range.end && d.getMonth() === m) { count++; d = addDays(d, 1); }
+        monthsHTML += `<div class="tl-month-cell" style="width:${count * dayW}px">${MONTHS_SHORT[m]} ${monthStart.getFullYear()}</div>`;
+      }
+
+      // Build week cells
+      let weeksHTML = '';
+      d = new Date(range.start);
+      while (d <= range.end) {
+        const wn = getWeekNum(d);
+        let count = 0;
+        const startWn = wn;
+        while (d <= range.end && getWeekNum(d) === startWn) { count++; d = addDays(d, 1); }
+        weeksHTML += `<div class="tl-week-cell" style="width:${count * dayW}px">W${startWn}</div>`;
+      }
+
+      // Build day cells
+      let daysHTML = '';
+      d = new Date(range.start);
+      while (d <= range.end) {
+        const cls = [];
+        if (isWeekend(d)) cls.push('weekend');
+        if (isSameDay(d, today)) cls.push('today');
+        daysHTML += `<div class="tl-day-cell ${cls.join(' ')}">${d.getDate()}</div>`;
+        d = addDays(d, 1);
+      }
+
+      // Weekend overlays for body
+      let weekendOverlays = '';
+      d = new Date(range.start);
+      let idx = 0;
+      while (d <= range.end) {
+        if (isWeekend(d)) {
+          weekendOverlays += `<div class="weekend-col" style="left:${idx * dayW}px;width:${dayW}px"></div>`;
+        }
+        d = addDays(d, 1);
+        idx++;
+      }
+
+      // Today line
+      let todayLine = '';
+      const todayIdx = daysDiff(range.start, today);
+      if (todayIdx >= 0 && todayIdx <= totalDays) {
+        todayLine = `<div class="today-line" style="left:${todayIdx * dayW + dayW/2}px"></div>`;
+      }
+
+      // Task rows with VISUAL TRACK PACKING & TEXT OVERFLOW
+      let bodyHTML = '';
+      let animDelay = 0;
+      projects.forEach(p => {
+        const c = clr(p);
+        bodyHTML += `<div class="tl-project-group">`;
+        bodyHTML += `
+          <div class="tl-project-header-row">
+            <div class="tl-project-label" style="border-left-color:${c.primary}">
+              <div class="dot" style="background:${c.primary}"></div>
+              ${p.name}
+            </div>
+          </div>`;
+
+        // Calculate visual properties for all tasks
+        const preparedTasks = p.tasks.map(t => {
+          const ts = parseD(t.startDate);
+          const te = parseD(t.endDate);
+          const left = daysDiff(range.start, ts) * dayW;
+          const blockWidth = (daysDiff(ts, te) + 1) * dayW;
+          const textWidth = getExactTextWidth(t.name, t.pic);
+          const visualEndPx = left + Math.max(blockWidth, textWidth);
+
+          return {
+            ...t,
+            _ts: ts,
+            _te: te,
+            _left: left,
+            _blockWidth: blockWidth,
+            _textWidth: textWidth,
+            _visualEndPx: visualEndPx
+          };
+        }).sort((a, b) => a._left - b._left);
+
+        // Pack tasks into tracks based on VISUAL END POSITION
+        const tracks = [];
+        preparedTasks.forEach(t => {
+          let placed = false;
+          for (let i = 0; i < tracks.length; i++) {
+            const lastTaskInTrack = tracks[i][tracks[i].length - 1];
+            // If new task start pixel is past last task's visual end pixel (with 6px safety gap)
+            if (t._left >= lastTaskInTrack._visualEndPx + 6) {
+              tracks[i].push(t);
+              placed = true;
+              break;
+            }
+          }
+          if (!placed) {
+            tracks.push([t]);
+          }
+        });
+
+        // Render each track as a task row
+        tracks.forEach(trackTasks => {
+          bodyHTML += `<div class="tl-task-row">`;
+          trackTasks.forEach(t => {
+            const duration = daysDiff(t._ts, t._te) + 1;
+            let left = t._left;
+            let blockWidth = t._blockWidth;
+
+            if (left < 0) {
+              blockWidth += left;
+              left = 0;
+            }
+
+            bodyHTML += `
+              <div class="task-bar-wrapper animate" style="left:${left}px;animation-delay:${animDelay * 40}ms">
+                <div class="task-bar-block" style="width:${blockWidth}px;background:${c.bg};border:1.5px solid ${c.border};border-left:4px solid ${c.primary};"></div>
+                <div class="task-bar-content" style="color:${c.text};">
+                  <span class="bar-name">${t.name}</span>
+                  <span class="bar-separator">·</span>
+                  <span class="bar-pic">${t.pic}</span>
+                </div>
+                <div class="task-bar-tooltip">
+                  <strong>${t.name}</strong>
+                  <div class="tt-row">PIC: ${t.pic}</div>
+                  <div class="tt-row">${fmtMedium(t._ts)} → ${fmtMedium(t._te)}</div>
+                  <div class="tt-row">${duration} day${duration>1?'s':''}</div>
+                  <div class="tt-row" style="opacity:.65">${p.name}</div>
+                </div>
+              </div>`;
+          });
+          bodyHTML += `</div>`;
+          animDelay++;
+        });
+
+        bodyHTML += `</div>`;
+      });
+
+      scroll.innerHTML = `
+        <div class="timeline-inner" style="width:${totalWidth}px">
+          <div class="tl-header">
+            <div class="tl-row tl-month-row">${monthsHTML}</div>
+            <div class="tl-row tl-week-row">${weeksHTML}</div>
+            <div class="tl-row tl-day-row">${daysHTML}</div>
+          </div>
+          <div class="tl-body">
+            ${weekendOverlays}
+            ${todayLine}
+            ${bodyHTML}
+          </div>
+        </div>`;
+    }
+
+    /* ═══════════════════════════════════════
+       RENDER: PIC SUMMARY & TOGGLE
+       ═══════════════════════════════════════ */
+    function togglePicWorkload() {
+      state.picWorkloadCollapsed = !state.picWorkloadCollapsed;
+      saveState();
+      updatePicSectionCollapseState();
+    }
+
+    function updatePicSectionCollapseState() {
+      const isCollapsed = !!state.picWorkloadCollapsed;
+      const sec = document.getElementById('picSection');
+      if (sec) sec.classList.toggle('collapsed', isCollapsed);
+    }
+
+    function renderPicSummary() {
+      updatePicSectionCollapseState();
+      const projects = getFilteredProjects();
+      const grid = document.getElementById('picGrid');
+      const pics = getPicSummary(projects);
+      if (pics.length === 0) {
+        grid.innerHTML = `<div style="font-size:.8rem;color:var(--text-3);padding:8px 0;">No tasks for selected filter.</div>`;
+        return;
+      }
+      grid.innerHTML = pics.map(pic => {
+        const initial = pic.name.charAt(0).toUpperCase();
+        let hash = 0;
+        for (let i = 0; i < pic.name.length; i++) hash = pic.name.charCodeAt(i) + ((hash << 5) - hash);
+        const avatarColor = PALETTE[Math.abs(hash) % PALETTE.length].primary;
+        return `
+          <div class="pic-card">
+            <div class="pic-card-head">
+              <div class="pic-avatar" style="background:${avatarColor}">${initial}</div>
+              <span class="pic-name">${pic.name}</span>
+              <span class="pic-count">${pic.tasks.length}</span>
+            </div>
+            <div class="pic-task-list">
+              ${pic.tasks.map(t => `
+                <div class="pic-task-item">
+                  <div class="pic-task-dot" style="background:${t.color.primary}"></div>
+                  <span class="pti-name" title="${t.taskName} (${t.projectName})">${t.taskName}</span>
+                  <span class="pti-dates">${fmtShort(parseD(t.startDate))}-${fmtShort(parseD(t.endDate))}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    /* ═══════════════════════════════════════
+       SIDEBAR TOGGLE
+       ═══════════════════════════════════════ */
+    function toggleSidebar() {
+      state.sidebarOpen = !state.sidebarOpen;
+      document.getElementById('sidebar').classList.toggle('collapsed', !state.sidebarOpen);
+      saveState();
+      setTimeout(renderTimeline, 300);
+    }
+    function toggleProject(id) {
+      const p = state.projects.find(x => x.id === id);
+      if (p) { p.expanded = !p.expanded; saveState(); renderSidebar(); }
+    }
+    function deleteProject(id) {
+      const p = state.projects.find(x => x.id === id);
+      if (!p || !confirm(`Delete project "${p.name}" and all its tasks?`)) return;
+      state.projects = state.projects.filter(x => x.id !== id);
+      saveState(); render();
+    }
+    function deleteTask(projectId, taskId) {
+      const proj = state.projects.find(p => p.id === projectId);
+      if (!proj) return;
+      const t = proj.tasks.find(x => x.id === taskId);
+      if (!t || !confirm(`Delete task "${t.name}"?`)) return;
+      proj.tasks = proj.tasks.filter(x => x.id !== taskId);
+      saveState(); render();
+    }
+
+    /* ═══════════════════════════════════════
+       FILTER POPUP
+       ═══════════════════════════════════════ */
+    function toggleFilter() {
+      const overlay = document.getElementById('filterOverlay');
+      if (overlay.classList.contains('show')) {
+        overlay.classList.remove('show');
+      } else {
+        populateFilterOptions();
+        overlay.classList.add('show');
+      }
+    }
+    function closeFilter(e) {
+      if (e.target === document.getElementById('filterOverlay')) {
+        document.getElementById('filterOverlay').classList.remove('show');
+      }
+    }
+    function populateFilterOptions() {
+      document.getElementById('filterStart').value = state.filters.startDate || '';
+      document.getElementById('filterEnd').value = state.filters.endDate || '';
+      const fp = document.getElementById('filterProjects');
+      fp.innerHTML = state.projects.map(p => {
+        const checked = state.filters.projects.length === 0 || state.filters.projects.includes(p.id);
+        return `<label class="filter-check"><input type="checkbox" value="${p.id}" ${checked ? 'checked' : ''}><label>${p.name}</label></label>`;
+      }).join('');
+      const pics = getAllPics();
+      const fpi = document.getElementById('filterPics');
+      fpi.innerHTML = pics.map(pic => {
+        const checked = state.filters.pics.length === 0 || state.filters.pics.includes(pic);
+        return `<label class="filter-check"><input type="checkbox" value="${pic}" ${checked ? 'checked' : ''}><label>${pic}</label></label>`;
+      }).join('');
+    }
+    function applyFilters() {
+      state.filters.startDate = document.getElementById('filterStart').value || '';
+      state.filters.endDate = document.getElementById('filterEnd').value || '';
+
+      const projChecks = document.querySelectorAll('#filterProjects input[type=checkbox]');
+      const allProj = [...projChecks].every(c => c.checked);
+      state.filters.projects = allProj ? [] : [...projChecks].filter(c => c.checked).map(c => c.value);
+
+      const picChecks = document.querySelectorAll('#filterPics input[type=checkbox]');
+      const allPics = [...picChecks].every(c => c.checked);
+      state.filters.pics = allPics ? [] : [...picChecks].filter(c => c.checked).map(c => c.value);
+
+      saveState();
+      updateFilterBadge();
+      document.getElementById('filterOverlay').classList.remove('show');
+      renderTimeline();
+      renderPicSummary();
+    }
+    function resetFilters() {
+      state.filters = { startDate: '', endDate: '', projects: [], pics: [] };
+      saveState();
+      updateFilterBadge();
+      document.getElementById('filterOverlay').classList.remove('show');
+      renderTimeline();
+      renderPicSummary();
+    }
+    function updateFilterBadge() {
+      const btn = document.getElementById('filterBtn');
+      const f = state.filters;
+      const count = (f.projects.length > 0 ? 1 : 0) + (f.pics.length > 0 ? 1 : 0) + (f.startDate ? 1 : 0) + (f.endDate ? 1 : 0);
+      const existing = btn.querySelector('.filter-count');
+      if (existing) existing.remove();
+      if (count > 0) {
+        btn.classList.add('active');
+        btn.insertAdjacentHTML('beforeend', `<span class="filter-count">${count}</span>`);
+      } else {
+        btn.classList.remove('active');
+      }
+    }
+
+    /* ═══════════════════════════════════════
+       SCROLL TO TODAY
+       ═══════════════════════════════════════ */
+    function scrollToToday() {
+      const scrollEl = document.getElementById('timelineScroll');
+      const todayLine = scrollEl.querySelector('.today-line');
+      if (todayLine) {
+        const left = parseInt(todayLine.style.left) - scrollEl.clientWidth / 2;
+        scrollEl.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+      }
+    }
+
+    /* ═══════════════════════════════════════
+       EXPORT
+       ═══════════════════════════════════════ */
+    function exportToExcel() {
+      if (typeof XLSX === 'undefined') {
+        alert('Excel library is loading. Please try again in a moment.');
+        return;
+      }
+      const wb = XLSX.utils.book_new();
+
+      const taskRows = [];
+      state.projects.forEach(p => {
+        p.tasks.forEach(t => {
+          const dur = daysDiff(parseD(t.startDate), parseD(t.endDate)) + 1;
+          taskRows.push({
+            'Project': p.name,
+            'Task': t.name,
+            'PIC': t.pic,
+            'Start Date': t.startDate,
+            'End Date': t.endDate,
+            'Duration (days)': dur
+          });
+        });
+      });
+      if (taskRows.length === 0) taskRows.push({ 'Project': '', 'Task': 'No data', 'PIC': '', 'Start Date': '', 'End Date': '', 'Duration (days)': '' });
+      const ws1 = XLSX.utils.json_to_sheet(taskRows);
+      ws1['!cols'] = [{wch:26},{wch:30},{wch:16},{wch:14},{wch:14},{wch:16}];
+      XLSX.utils.book_append_sheet(wb, ws1, 'Tasks');
+
+      const picRows = [];
+      const pics = getPicSummary(state.projects);
+      pics.forEach(pic => {
+        pic.tasks.forEach((t, i) => {
+          picRows.push({
+            'PIC': i === 0 ? pic.name : '',
+            'Total Tasks': i === 0 ? pic.tasks.length : '',
+            'Task': t.taskName,
+            'Project': t.projectName,
+            'Start': t.startDate,
+            'End': t.endDate
+          });
+        });
+      });
+      if (picRows.length === 0) picRows.push({ 'PIC': 'No data', 'Total Tasks': 0, 'Task': '', 'Project': '', 'Start': '', 'End': '' });
+      const ws2 = XLSX.utils.json_to_sheet(picRows);
+      ws2['!cols'] = [{wch:16},{wch:14},{wch:30},{wch:26},{wch:14},{wch:14}];
+      XLSX.utils.book_append_sheet(wb, ws2, 'PIC Summary');
+
+      XLSX.writeFile(wb, `Cakra_Timeline_${fmtISO(new Date())}.xlsx`);
+    }
+
+    function exportJSON() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `Cakra_Timeline_backup_${fmtISO(new Date())}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    /* ═══════════════════════════════════════
+       RENDER ALL
+       ═══════════════════════════════════════ */
+    function render() {
+      renderSidebar();
+      renderTimeline();
+      renderPicSummary();
+      updateFilterBadge();
+    }
+
+    /* ═══════════════════════════════════════
+       INIT & RESIZE LISTENER
+       ═══════════════════════════════════════ */
+    document.getElementById('sidebar').classList.toggle('collapsed', !state.sidebarOpen);
+    render();
+
+    window.addEventListener('resize', () => {
+      renderTimeline();
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        cancelInline();
+        document.getElementById('filterOverlay').classList.remove('show');
+      }
+    });
+  </script>
+</body>
+</html>
