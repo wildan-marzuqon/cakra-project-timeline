@@ -944,6 +944,10 @@
           <!-- Rendered by JS -->
         </div>
         <div class="sidebar-foot">
+          <button onclick="triggerImport()" title="Import CSV / JSON / Excel data">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Import
+          </button>
           <button onclick="exportToExcel()" title="Export to Excel">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Excel
@@ -952,6 +956,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             JSON
           </button>
+          <input type="file" id="importFileInput" style="display:none" accept=".csv,.json,.xlsx,.xls" onchange="handleImportFile(event)">
         </div>
       </div>
     </aside>
@@ -2008,6 +2013,132 @@
       a.download = `Cakra_Timeline_backup_${fmtISO(new Date())}.json`;
       a.click();
       URL.revokeObjectURL(a.href);
+    }
+
+    /* ═══════════════════════════════════════
+       IMPORT DATA (CSV / JSON / EXCEL)
+       ═══════════════════════════════════════ */
+    function triggerImport() {
+      const input = document.getElementById('importFileInput');
+      if (input) {
+        input.value = '';
+        input.click();
+      }
+    }
+
+    function handleImportFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const fileName = file.name.toLowerCase();
+
+      if (fileName.endsWith('.json')) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const data = JSON.parse(e.target.result);
+            if (Array.isArray(data.projects)) {
+              state.projects = data.projects;
+            } else if (Array.isArray(data)) {
+              state.projects = data;
+            } else {
+              alert('Format file JSON tidak valid.');
+              return;
+            }
+            saveStateLocal();
+            render();
+            alert('Berhasil mengimpor data JSON!');
+          } catch(err) {
+            alert('Gagal membaca file JSON: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+
+            if (!rows || rows.length === 0) {
+              alert('File kosong atau format data tidak terbaca.');
+              return;
+            }
+
+            const projectMap = {};
+            let taskCount = 0;
+
+            rows.forEach(r => {
+              const projName = (r['Project'] || r['project'] || r['Nama Project'] || 'Project Baru').toString().trim();
+              const taskName = (r['Task'] || r['task'] || r['Nama Task'] || '').toString().trim();
+              const pic = (r['PIC'] || r['pic'] || r['Penanggung Jawab'] || '-').toString().trim() || '-';
+              let startDate = (r['Start Date'] || r['Start'] || r['startDate'] || r['Tanggal Mulai'] || '').toString().trim();
+              let endDate = (r['End Date'] || r['End'] || r['endDate'] || r['Tanggal Selesai'] || '').toString().trim();
+
+              if (!taskName) return;
+
+              startDate = normalizeDateStr(startDate);
+              endDate = normalizeDateStr(endDate);
+              if (!startDate) startDate = fmtISO(new Date());
+              if (!endDate) endDate = startDate;
+
+              if (!projectMap[projName]) {
+                projectMap[projName] = {
+                  id: uid(),
+                  name: projName,
+                  color: Object.keys(projectMap).length % PALETTE.length,
+                  expanded: true,
+                  tasks: []
+                };
+              }
+
+              projectMap[projName].tasks.push({
+                id: uid(),
+                name: taskName,
+                pic: pic,
+                startDate: startDate,
+                endDate: endDate
+              });
+              taskCount++;
+            });
+
+            const newProjects = Object.values(projectMap);
+            if (newProjects.length === 0) {
+              alert('Tidak ditemukan data task yang valid pada file.');
+              return;
+            }
+
+            if (confirm(`Impor ${newProjects.length} project dan ${taskCount} task? (Data saat ini di browser Anda akan diperbarui)`)) {
+              state.projects = newProjects;
+              saveStateLocal();
+              render();
+              alert(`Berhasil mengimpor ${newProjects.length} project dan ${taskCount} task ke LocalStorage!`);
+            }
+          } catch(err) {
+            alert('Gagal memproses file: ' + err.message);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    }
+
+    function normalizeDateStr(val) {
+      if (!val) return '';
+      if (typeof val === 'number') {
+        const dateObj = XLSX.SSF.parse_date_code(val);
+        if (dateObj) {
+          return `${dateObj.y}-${String(dateObj.m).padStart(2,'0')}-${String(dateObj.d).padStart(2,'0')}`;
+        }
+      }
+      const str = String(val).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+      const parsed = new Date(str);
+      if (!isNaN(parsed.getTime())) {
+        return fmtISO(parsed);
+      }
+      return '';
     }
 
     /* ═══════════════════════════════════════
